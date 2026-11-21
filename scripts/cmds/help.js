@@ -28,7 +28,7 @@ async function getRandomVideo() {
 }
 
 // ===== Style settings =====
-const CREATOR = "NADIM";
+const CREATOR = "AKASH";
 const LINE = "🌸─────────────────🌸";
 const BORDER = "🐼🎀━━━━━━━━━━━━━━🎀🐼";
 const CMD_EMOJIS = ["🐼", "🎀", "🧸", "🌸", "🦋", "🍓", "💖", "🐰", "🍭", "✨"];
@@ -119,7 +119,7 @@ function roleTextToString(role) {
 module.exports = {
  config: {
  name: "help",
- aliases: "menu",
+ aliases: ["menu"],
  version: "2.1",
  author: "rocky404",
  countDown: 5,
