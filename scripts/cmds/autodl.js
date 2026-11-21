@@ -631,16 +631,16 @@ module.exports = {
           : "🎬 VIDEO";
 
       const caption =
-`🎬 DOWNLOAD COMPLETE 🎬
+`🐰 DOWNLOAD COMPLETE 🐰
 ────────────────────
-🔻 TITLE — ${shortTitle}
-🔻 PLATFORM — ${String(platform).toUpperCase()}
-🔻 FILE — ${mediaType}
-🔻 QUALITY — ${quality}
-🔻 SIZE — ${formatSize(stats.size)}
-🔻 TIME — ${elapsed}s
+🎀 TITLE — ${shortTitle}
+🐰 PLATFORM — ${String(platform).toUpperCase()}
+🎀 FILE — ${mediaType}
+🐰 QUALITY — ${quality}
+🎀 SIZE — ${formatSize(stats.size)}
+🐰 TIME — ${elapsed}s
 ────────────────────
-⚙️ POWERED BY XALMAN`;
+🎀 POWERED BY AKASH 🎀`;
 
       await message.reply({
         body: caption,
