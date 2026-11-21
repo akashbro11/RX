@@ -21,7 +21,7 @@
     "duration": 2000
   },
   "reactionMirror": {
-    "enable": true
+    "enable": false
   },
   "adminBot": [
     "61596202262199"
