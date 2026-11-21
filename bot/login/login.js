@@ -1045,6 +1045,29 @@ async function getAppStateFromFile(
   }
 }
 
+/* ---- Auto 2FA (TOTP) so email/password relogin works unattended ---- */
+function generateTOTP(secret) {
+  const crypto = require("crypto");
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const clean = String(secret).replace(/[\s=-]/g, "").toUpperCase();
+  let bits = "";
+  for (const ch of clean) {
+    const idx = alphabet.indexOf(ch);
+    if (idx === -1) throw new Error("Invalid 2FASecret (not base32)");
+    bits += idx.toString(2).padStart(5, "0");
+  }
+  const bytes = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8)
+    bytes.push(parseInt(bits.slice(i, i + 8), 2));
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 1000 / 30)));
+  const hmac = crypto.createHmac("sha1", Buffer.from(bytes)).update(counter).digest();
+  const off = hmac[hmac.length - 1] & 0xf;
+  const num = (hmac.readUInt32BE(off) & 0x7fffffff) % 1000000;
+  return String(num).padStart(6, "0");
+}
+let totpAttempts = 0;
+
 async function getAppStateFromEmail(
   spin
 ) {
@@ -1091,6 +1114,21 @@ async function getAppStateFromEmail(
       typeof err.continue ===
         "function"
     ) {
+      if (facebookAccount["2FASecret"] && totpAttempts < 3) {
+        totpAttempts++;
+        log.info("2FA", "Using 2FASecret to generate the code automatically...");
+        try {
+          const res = await err.continue(generateTOTP(facebookAccount["2FASecret"]));
+          totpAttempts = 0;
+          return res;
+        } catch (newErr) {
+          if (newErr.continue) {
+            await new Promise(r => setTimeout(r, 3000));
+            return await getAppStateFromEmail(spin);
+          }
+          throw newErr;
+        }
+      }
       const rl =
         readline.createInterface({
           input: process.stdin,
