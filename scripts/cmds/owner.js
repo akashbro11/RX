@@ -1,101 +1,103 @@
 const axios = require("axios");
 const moment = require("moment-timezone");
 
-const PORTFOLIO = "https://xalman.page.gd";
-
 module.exports = {
   config: {
     name: "owner",
     aliases: ["admininfo", "info", "ownerinfo"],
-    version: "5.5",
-    author: "xalman",
+    version: "2.1",
+    author: "Toshiro Editz",
     countDown: 5,
     role: 0,
-    shortDescription: { en: "Show owner information" },
+    shortDescription: {
+      en: "Show owner information"
+    },
     category: "owner",
-    guide: { en: "{pn}" }
+    guide: {
+      en: "{pn}"
+    }
   },
 
-  onStart: async function ({ event, message }) {
-    const ownerName = "MD SALMAN HOSSAIN";
-    const ownerAge = "18";
-    const fbName = "Salman Hossain";
-    const messenger = "https://www.facebook.com/codex.xalman";
-    const whatsapp = "https://wa.me/qr/2SDY4QQTMJR7H1";
-    const telegram = "@Negativexalman";
-    const address = "Narsingdi, Dhaka, Bangladesh";
+  onStart: async function ({ message }) {
+    const ownerName = "AKASH AHMED";
+    const nickName = "ফু্ঁল্ঁ ও্ঁয়া্ঁলা্ঁ";
+    const age = "19+";
+    const dob = "08/02/2007";
     const religion = "Islam";
-    const relationship = "Single";
+    const nationality = "Bangladeshi";
+    const education = "Inter 1st Year";
+    const university = "Social Media";
+    const location = "Khulna";
 
-    const videoLinks = [
-      "https://files.catbox.moe/2spj4f.mp4",
-      "https://files.catbox.moe/8mj9n3.mp4"
-    ];
+    const game = "Uno / Free Fire";
+    const hobby = "Music / Video Game / Sport";
+    const dream = "Bow/Gf = Extract Kora";
+    const goal = "Bow/Gf er oitaa";
 
-    const videoLink = videoLinks[Math.floor(Math.random() * videoLinks.length)];
+    const facebook = "AK A SH";
+    const messenger = "AK A SH";
+    const whatsapp = "01410577478";
+
+    const botName =
+      global.GoatBot.config.nickNameBot ||
+      global.GoatBot.config.nickNameBot ||
+      "Unknown";
+
+    const botSince = "12/07/2026";
+    const videoLink = "https://i.imgur.com/RFGo2a1.mp4";
+
     const timeBD = moment().tz("Asia/Dhaka");
 
-    const infoMsg = `╭────────────────────╮
-   👑 𝗢𝗪𝗡𝗘𝗥 𝗣𝗥𝗢𝗙𝗜𝗟𝗘 👑
-╰────────────────────╯
-
-🪪 𝗜𝗗𝗘𝗡𝗧𝗜𝗧𝗬
-   👤 Name       : ${ownerName}
-   🎂 Age        : ${ownerAge}
-   💞 Status     : ${relationship}
-   🕌 Religion   : ${religion}
-   📍 Address    : ${address}
-
-📡 𝗥𝗘𝗔𝗖𝗛 𝗠𝗘
-   👨 Facebook   : ${fbName}
-   🔗 Fb Link    : ${messenger}
-   📱 WhatsApp   : ${whatsapp}
-   ✈️ Telegram   : ${telegram}
-
-💻 𝗦𝗬𝗦𝗧𝗘𝗠
-   🌐 Portfolio  : ${PORTFOLIO}
-   📅 Date (BD)  : ${timeBD.format("DD MMMM, YYYY")}
-   🕒 Time (BD)  : ${timeBD.format("hh:mm:ss A")}
-
-💎 Thanks for using my bot!
-⚡ Powered by XALMAN`;
+    const infoMsg =
+`╭─ 💎 ᴏᴡɴᴇʀ ɪɴꜰᴏ 💎 ─╮
+      │ 👤 ɴᴀᴍᴇ : ${ownerName}
+      │ 🧬 ɴɪᴄᴋ : ${nickName}
+      │ ⏳ ᴀɢᴇ : ${age}
+      │ 🎂 ᴅᴏʙ : ${dob}
+      │ 🕌 ʀᴇʟɪɢɪᴏɴ : ${religion}
+      │ 🇧🇩 ɴᴀᴛɪᴏɴᴀʟɪᴛʏ : ${nationality}
+      │ 📚 ᴇᴅᴜᴄᴀᴛɪᴏɴ : ${education}
+      │ 🏫 ᴜɴɪᴠᴇʀꜱɪᴛʏ : ${university}
+      │ 📍 ʟᴏᴄᴀᴛɪᴏɴ : ${location}
+      ├─ ✨ ʟɪꜰᴇꜱᴛʏʟᴇ ─╮
+      │ 🕹️ ɢᴀᴍᴇ : ${game}
+      │ 🎧 ʜᴏʙʙʏ : ${hobby}
+      │ 🌙 ᴅʀᴇᴀᴍ : ${dream}
+      │ 🎯 ɢᴏᴀʟ : ${goal}
+      ├─ 📞 ᴄᴏɴᴛᴀᴄᴛ ─╮
+      │ 📘 ꜰᴀᴄᴇʙᴏᴏᴋ : ${facebook}
+      │ 📩 ᴍᴇꜱꜱᴇɴɢᴇʀ : ${messenger}
+      │ 💚 ᴡʜᴀᴛꜱᴀᴘᴘ : ${whatsapp}
+      │ 🤖 ʙᴏᴛ ɴᴀᴍᴇ : ${botName}
+      │ 📅 ʙᴏᴛ ꜱɪɴᴄᴇ : ${botSince}
+      ├─ ⏰ ᴅᴀᴛᴇ & ᴛɪᴍᴇ ─╮
+      │ 📆 ${timeBD.format("DD/MM/YYYY")}
+      │ 🕒 ${timeBD.format("hh:mm:ss A")}
+      ╰────────────────`;
 
     try {
-      const video = await axios.get(videoLink, {
+      const response = await axios.get(videoLink, {
         responseType: "stream",
         timeout: 30000,
         maxRedirects: 5,
         headers: {
-          "User-Agent": "Mozilla/5.0",
-          "Referer": "https://imgur.com/"
+          "User-Agent": "Mozilla/5.0"
         }
       });
 
-      video.data.path = "owner.mp4";
-
       return message.reply({
         body: infoMsg,
-        attachment: video.data
+        attachment: response.data
       });
     } catch (error) {
+      console.error("[OWNER VIDEO ERROR]", error.message);
       return message.reply(infoMsg);
     }
   },
 
   onChat: async function ({ event, message }) {
-    const body = event.body?.trim().toLowerCase();
-
-    if (["owner", "info", "admininfo", "ownerinfo"].includes(body)) {
-      return module.exports.onStart({ event, message });
+    if (event.body?.trim().toLowerCase() === "info") {
+      return this.onStart({ message, event });
     }
   }
 };
-
-const NX_ORIGIN = [120, 97, 108, 109, 97, 110];
-
-if (
-  String(module.exports.config.author).toLowerCase() !==
-  Buffer.from(NX_ORIGIN).toString("utf8")
-) {
-  throw new Error("Command integrity check failed");
-}
