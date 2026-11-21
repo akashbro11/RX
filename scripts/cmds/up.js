@@ -87,13 +87,13 @@ module.exports = {
 `✧━━━━━━━━━━━━━━━━━━━━✧
     𝗦𝗬𝗦𝗧𝗘𝗠 𝗢𝗩𝗘𝗥𝗩𝗜𝗘𝗪
 ✧━━━━━━━━━━━━━━━━━━━━✧
-⏱ Uptime   : ${uptimeStr}
-🏓 Ping    : ${ping} ms
-📦 Node    : ${nodeVer}
-🖥 Platform: ${platform}
-💾 Memory  : ${usedMemStr} / ${totalMemStr}
+🐰 Uptime   : ${uptimeStr}
+🎀 Ping    : ${ping} ms
+🐰 Node    : ${nodeVer}
+🎀 Platform: ${platform}
+🐰 Memory  : ${usedMemStr} / ${totalMemStr}
 ✧━━━━━━━━━━━━━━━━━━━━✧
-⚡ Powered by NX`;
+🎀 Powered by AKASH 🎀`;
 
     try {
       const cachePath = path.join(__dirname, 'cache', `up_hud.png`);
