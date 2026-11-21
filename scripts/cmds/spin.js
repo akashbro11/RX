@@ -131,12 +131,12 @@ function buildFrame({ header, ring, pointerIndex, footer }) {
 module.exports.config = {
   name: "spin",
   version: "1.0.0",
-  hasPermssion: 0,
-  credits: "ROCKY CHOWDHURY",
-  description: "Wheel of Spin — bet and spin the wheel for multipliers up to 25x!",
-  commandCategory: "games",
-  usages: "[amount]",
-  cooldowns: 6
+  author: "ROCKY CHOWDHURY",
+  role: 0,
+  countDown: 6,
+  shortDescription: { en: "Wheel of Spin - bet and spin for multipliers up to 25x" },
+  category: "games",
+  guide: { en: "{pn} <amount>" }
 };
 
 // GoatBot requires "onStart" as the entry function.
