@@ -2388,13 +2388,7 @@ async function startBot(
           );
 
           try {
-            if (
-              api &&
-              typeof api.logout ===
-                "function"
-            ) {
-              api.logout();
-            }
+            /* api.logout() removed: it logs the Facebook session out for real */
           } catch {}
 
           return;
