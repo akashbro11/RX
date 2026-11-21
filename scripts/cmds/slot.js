@@ -87,12 +87,12 @@ function buildFrame(e1, e2, e3, footer) {
 module.exports.config = {
   name: "slot",
   version: "6.1.0",
-  hasPermssion: 0,
-  credits: "ROCKY CHOWDHURY",
-  description: "Slot machine game",
-  commandCategory: "games",
-  usages: "[amount]",
-  cooldowns: 5
+  author: "ROCKY CHOWDHURY",
+  role: 0,
+  countDown: 5,
+  shortDescription: { en: "Slot machine game" },
+  category: "games",
+  guide: { en: "{pn} <amount>" }
 };
 
 // GoatBot requires "onStart" as the entry function.
