@@ -2,9 +2,6 @@ const axios = require("axios");
 const { getPrefix } = global.utils;
 const { commands, aliases } = global.GoatBot;
 
-let xfont = null;
-let yfont = null;
-let categoryEmoji = null;
 
 // ===== Video API (random video every time) =====
 // NOTE: ফাইলের নাম (video.json) আপনার repo অনুযায়ী বদলে নিন
@@ -30,27 +27,52 @@ async function getRandomVideo() {
  }
 }
 
-async function loadResources() {
- try {
- const [catRes, cmdRes, emojiRes] = await Promise.all([
- axios.get("https://raw.githubusercontent.com/Alvee-Evan-telegrame-bot/rv-api/main/xfont.json"),
- axios.get("https://raw.githubusercontent.com/Alvee-Evan-telegrame-bot/rv-api/main/yfont.json"),
- axios.get("https://raw.githubusercontent.com/Alvee-Evan-telegrame-bot/rv-api/main/category.json")
- ]);
- xfont = catRes.data;
- yfont = cmdRes.data;
- categoryEmoji = emojiRes.data;
- } catch (err) {}
-}
+// ===== Style settings =====
+const CREATOR = "NADIM";
+const LINE = "🌸─────────────────🌸";
+const BORDER = "🐼🎀━━━━━━━━━━━━━━🎀🐼";
+const CMD_EMOJIS = ["🐼", "🎀", "🧸", "🌸", "🦋", "🍓", "💖", "🐰", "🍭", "✨"];
+const CATEGORY_EMOJI = {
+  ai: "🤖", anime: "🎀", "box chat": "💬", config: "⚙️", "contacts admin": "📞",
+  custom: "🎀", economy: "💰", fun: "🎉", "fun & social": "🎀", game: "🎮",
+  games: "🎮", image: "🖼️", info: "📖", islamic: "🎀", love: "💕", media: "🎬",
+  other: "🎀", owner: "👑", rank: "🏆", software: "🎀", system: "💻",
+  tts: "🎀", utility: "🧰", wiki: "🎀"
+};
 
-function fontConvert(text, type = "command") {
- const fontMap = type === "category" ? xfont : yfont;
- if (!fontMap) return text;
- return text.split("").map(ch => fontMap[ch] || ch).join("");
+// Mathematical bold font (𝐚𝐛𝐜 𝐀𝐁𝐂 𝟎𝟏𝟐)
+function bold(text) {
+  return String(text).split("").map(ch => {
+    const c = ch.codePointAt(0);
+    if (c >= 97 && c <= 122) return String.fromCodePoint(0x1D41A + c - 97);
+    if (c >= 65 && c <= 90) return String.fromCodePoint(0x1D400 + c - 65);
+    if (c >= 48 && c <= 57) return String.fromCodePoint(0x1D7CE + c - 48);
+    return ch;
+  }).join("");
 }
 
 function getCategoryEmoji(cat) {
- return categoryEmoji?.[cat.toLowerCase()] || "🗂️";
+  return CATEGORY_EMOJI[cat.toLowerCase()] || "🎀";
+}
+
+function categoryBlock(cat, list) {
+  let out = `🎀 〔 ${getCategoryEmoji(cat)} ${bold(cat)} 〕 🐼\n`;
+  list.sort().forEach((cmd, i) => {
+    out += `  ${CMD_EMOJIS[i % CMD_EMOJIS.length]} ${bold(cmd)}\n`;
+  });
+  out += `${LINE}\n`;
+  return out;
+}
+
+function footer(total, prefix) {
+  return `${BORDER}
+🐼 ${bold("Need help with a command?")} 🎀
+🎀 ${bold("Use")} ${prefix}${bold("help")} <${bold("command")}> 🐼
+${LINE}
+🧸 ${bold("Total Commands")}: ${bold(total)} 🎀
+⚡ ${bold("Prefix")}: ${prefix} 🐼
+👑 ${bold("Creator")}: ${bold(CREATOR)} 💖
+${BORDER}`;
 }
 
 function levenshteinDistance(a, b) {
@@ -111,8 +133,6 @@ module.exports = {
  onStart: async function ({ message, args, event, role }) {
  const prefix = getPrefix(event.threadID);
 
- if (!xfont || !yfont || !categoryEmoji) await loadResources();
-
  const categories = {};
  for (const [name, cmd] of commands) {
  if (!cmd?.config || typeof cmd.onStart !== "function") continue;
@@ -126,64 +146,33 @@ module.exports = {
  const helpImage = await getRandomVideo();
  const input = args.join(" ").trim();
 
+ const sendWithVideo = async (body) => {
+ try {
+ return await message.reply({ body, attachment: await global.utils.getStreamFromURL(helpImage) });
+ } catch (e) {
+ return message.reply(body);
+ }
+ };
+
  if (args[0] === "-c" && args[1]) {
- const categoryName = args[1].toUpperCase();
+ const categoryName = args.slice(1).join(" ").toUpperCase();
  if (!categories[categoryName]) {
  return message.reply(`❌ Category "${categoryName}" not found.`);
  }
-
- const emoji = getCategoryEmoji(categoryName);
  const list = categories[categoryName];
- const total = list.length;
-
- let msg = "";
- msg += "━━━━━━━━━━━━━━\n";
- msg += `𝐂𝐀𝐓𝐄𝐆𝐎𝐑𝐘: ${emoji} | ${fontConvert(categoryName, "category")}\n`;
- msg += "╭──────୨ৎ──────╮\n";
-
- for (const cmd of list.sort()) {
- msg += `╎ ᯓ✧. ${fontConvert(cmd, "command")}\n`;
- }
-
- msg += "┕━─────୨ৎ─────━ᥫ᭡\n";
- msg += "• 𝙽𝚎𝚎𝚍 𝚑𝚎𝚕𝚙 𝚠𝚒𝚝𝚑 𝚊 𝚌𝚘𝚖𝚖𝚊𝚗𝚍? 𝚄𝚜𝚎 /𝚑𝚎𝚕𝚙 <𝚌𝚘𝚖𝚖𝚊𝚗𝚍𝚗𝚊𝚖𝚎>.\n";
- msg += "╭──────୨ৎ──────╮\n";
- msg += `╎ 🔢 𝐓𝐨𝐭𝐚𝐥 𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬: ${total}\n`;
- msg += `╎ ⚡️ 𝐏𝐫𝐞𝐟𝐢𝐱: ${prefix}\n`;
- msg += "╎ 👤 𝐂𝐫𝐞𝐚𝐭𝐨𝐫: AKASH\n";
- msg += "╰──────୨ৎ──────╯";
-
- return message.reply({
- body: msg,
- attachment: await global.utils.getStreamFromURL(helpImage)
- });
+ let msg = `${BORDER}\n   🎀 ${bold("COMMAND MENU")} 🐼\n${BORDER}\n\n`;
+ msg += categoryBlock(categoryName, list) + "\n";
+ msg += footer(list.length, prefix);
+ return sendWithVideo(msg);
  }
 
  if (!input) {
- let msg = "";
- msg += "━━━━━━━━━━━━━━\n";
- msg += "𝙰𝚟𝚊𝚒𝚕𝚊𝚋𝚕𝚎 𝙲𝚘𝚖𝚖𝚊𝚗𝚍𝚜:\n";
- msg += "━━━━━━━━━━━━━━\n";
-
+ let msg = `${BORDER}\n   🎀 ${bold("COMMAND MENU")} 🐼\n${BORDER}\n\n`;
  for (const cat of Object.keys(categories).sort()) {
- msg += `┍─━〔 ${getCategoryEmoji(cat)} | ${fontConvert(cat, "category")} 〕\n`;
- for (const cmd of categories[cat].sort()) {
- msg += `╎ᯓ✧. ${fontConvert(cmd, "command")}\n`;
+ msg += categoryBlock(cat, categories[cat]) + "\n";
  }
- msg += "┕━─────୨ৎ─────━ᥫ᭡\n";
- }
-
- msg += "• 𝙽𝚎𝚎𝚍 𝚑𝚎𝚕𝚙 𝚠𝚒𝚝𝚑 𝚊 𝚌𝚘𝚖𝚖𝚊𝚗𝚍? 𝚄𝚜𝚎 /𝚑𝚎𝚕𝚙 <𝚌𝚘𝚖𝚖𝚊𝚗𝚍𝚗𝚊𝚖𝚎>.\n";
- msg += "╭──────୨ৎ──────╮\n";
- msg += `╎ 🔢 𝐓𝐨𝐭𝐚𝐥 𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬: ${commands.size}\n`;
- msg += `╎ ⚡️ 𝐏𝐫𝐞𝐟𝐢𝐱: ${prefix}\n`;
- msg += "╎ 👤 𝐂𝐫𝐞𝐚𝐭𝐨𝐫: AKASH\n";
- msg += "╰──────୨ৎ──────╯";
-
- return message.reply({
- body: msg,
- attachment: await global.utils.getStreamFromURL(helpImage)
- });
+ msg += footer(commands.size, prefix);
+ return sendWithVideo(msg);
  }
 
  const cmdName = input.toLowerCase();
@@ -201,18 +190,19 @@ module.exports = {
  const c = cmd.config;
  const usage = c.guide?.en?.replace(/{pn}/g, `${prefix}${c.name}`) || "No usage.";
 
- const msg = `
-╭═══ [ 𝘊𝘖𝘔𝘔𝘈𝘕𝘋 𝘐𝘕𝘍𝘖 ] ═══╮
-╎🧩 Name : ${c.name}
-╎📦 Category : ${(c.category || "UNCATEGORIZED").toUpperCase()}
-╎📜 Description: ${c.longDescription?.en || "No description."}
-╎🔁 Aliases : ${c.aliases ? [].concat(c.aliases).join(", ") : "None"}
-╎⚙️ Version : ${c.version || "1.0"}
-╎🔐 Permission : ${c.role} (${roleTextToString(c.role)})
-╎⏱️ Cooldown : ${c.countDown || 5}s
-╎👑 Author : ${c.author || "Unknown"}
-╎📖 Usage : ${usage}
-╰═════════୨ৎ═════════╯`;
+ const msg = `${BORDER}
+   🎀 ${bold("COMMAND INFO")} 🐼
+${BORDER}
+🐼 ${bold("Name")} : ${c.name}
+🎀 ${bold("Category")} : ${(c.category || "UNCATEGORIZED").toUpperCase()}
+🧸 ${bold("Description")} : ${c.longDescription?.en || c.shortDescription?.en || "No description."}
+🌸 ${bold("Aliases")} : ${c.aliases ? [].concat(c.aliases).join(", ") : "None"}
+🦋 ${bold("Version")} : ${c.version || "1.0"}
+🍓 ${bold("Permission")} : ${c.role} (${roleTextToString(c.role)})
+💖 ${bold("Cooldown")} : ${c.countDown || 5}s
+🐰 ${bold("Author")} : ${c.author || "Unknown"}
+🍭 ${bold("Usage")} : ${usage}
+${BORDER}`;
 
  return message.reply(msg);
  }
