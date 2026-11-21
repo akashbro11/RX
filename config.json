@@ -24,13 +24,13 @@
     "enable": true
   },
   "adminBot": [
-    "61596376100114"
+    "61596202262199"
   ],
   "devUsers": [
-    "61596376100114"
+    "61596202262199"
   ],
   "premiumUsers": [
-    "61596376100114"
+    "61596202262199"
   ],
   "reactBy": {
     "delete": [
@@ -58,8 +58,8 @@
     "whiteListIds": [],
     "notes": "if you enable this feature, only the ids in the whiteListIds section can use the bot"
   },
-  "nickNameBot": "🎀♡nx λi♡🦋くめ",
-  "prefix": "/",
+  "nickNameBot": "⎯᪵⎯꯭̽𝐁꯭y꯭e꯭e꯭e𓆪꯭)꯭⟶᯦꯭😾🦆",
+  "prefix": "|",
   "usePrefix": {
     "enable": true,
     "notes": "if enable is set to false, NO ONE needs a prefix to use commands (global no-prefix mode). Leave this true and use adminUsePrefix below instead for admin-only no-prefix.",
@@ -70,8 +70,8 @@
     }
   },
   "database": {
-    "type": "mongodb",
-    "uriMongodb": "mongodb+srv://xalmanxnxx_db_user:JK1qkvzlUmSOkrnl@nx.efw3nqq.mongodb.net/?retryWrites=true&w=majority&appName=nx",
+    "type": "sqlite",
+    "uriMongodb": "",
     "autoSyncWhenStart": false,
     "autoRefreshThreadInfoFirstTime": true,
     "notes": "(1) type selects 'json' or 'sqlite' or 'mongodb'. If you choose mongodb, enter uri connect mongodb in the uriMongodb section, instructions to get uri connect mongodb at: https://youtu.be/z1f9urHW5xY. I recommend using 'mongodb' or 'sqlite', json is not recommended because it is not stable. (2) when you set autoSyncWhenStart to true, the bot will automatically synchronize the data in the database when starting the bot, this will make the bot start slower. (3) when you set autoRefreshThreadInfoFirstTime to true, the bot will automatically refresh the thread information when get first message from the thread since starting the bot"
