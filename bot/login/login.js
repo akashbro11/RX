@@ -50,19 +50,28 @@ function compareVersion(v1, v2) {
 function filterKeysAppState(appState) {
   if (!Array.isArray(appState)) return [];
 
-  const allowed = new Set([
-    "c_user",
-    "xs",
-    "datr",
-    "fr",
-    "sb",
-    "i_user"
-  ]);
+  /*
+   * FIX: do NOT strip the cookie jar down to a few keys.
+   * Facebook ties a session to the whole browser-like cookie set
+   * (wd, presence, locale, ps_l, ps_n, ...). Sending only
+   * c_user/xs/datr/fr/sb made the session look suspicious and got
+   * it invalidated. Keep everything that has a key and a value,
+   * only drop exact duplicates.
+   */
+  const seen = new Set();
 
-  return appState.filter(item =>
-    item &&
-    allowed.has(item.key)
-  );
+  return appState.filter(item => {
+    if (!item || !item.key || item.value === undefined || item.value === "") {
+      return false;
+    }
+
+    const id = `${item.key}|${item.domain || ""}|${item.path || "/"}`;
+
+    if (seen.has(id)) return false;
+
+    seen.add(id);
+    return true;
+  });
 }
 
 function getAccountIdFromAppState(appState) {
@@ -1628,6 +1637,30 @@ function getErrorText(
     .trim();
 }
 
+/* FIX: "Connection refused: Server unavailable" is very often a
+ * temporary MQTT hiccup. Treating the first one as a dead session made the
+ * bot mark the account failed, switch accounts and re-login in a loop, which
+ * is exactly what gets a Facebook session killed. Only treat it as a dead
+ * session after 3 hits inside 10 minutes. */
+let serverUnavailableStrikes = 0;
+let serverUnavailableFirstAt = 0;
+
+function isServerUnavailableError(error) {
+  return getErrorText(error).includes("connection refused server unavailable");
+}
+
+function serverUnavailableLooksPermanent() {
+  const now = Date.now();
+
+  if (now - serverUnavailableFirstAt > 10 * 60 * 1000) {
+    serverUnavailableStrikes = 0;
+    serverUnavailableFirstAt = now;
+  }
+
+  serverUnavailableStrikes++;
+  return serverUnavailableStrikes >= 3;
+}
+
 /* =========================================================
  * LOGIN EXPIRED / BLOCKED DETECTOR
  *
@@ -1666,7 +1699,6 @@ function isLoginExpired(
 
     "authentication error",
     "authentication failed",
-    "authentication",
 
     /*
      * IMPORTANT
@@ -2654,6 +2686,18 @@ async function startBot(
               `Error: ${errorText || String(error)}`
             );
 
+            if (
+              isServerUnavailableError(error) &&
+              !serverUnavailableLooksPermanent()
+            ) {
+              log.warn(
+                "LISTEN_MQTT",
+                `Server unavailable (${serverUnavailableStrikes}/3), waiting for auto-reconnect instead of switching account.`
+              );
+
+              return;
+            }
+
             /*
              * =============================================
              * LOGIN EXPIRED / BLOCKED
@@ -2846,6 +2890,8 @@ async function startBot(
 
           global.statusAccountBot =
             "good";
+
+          serverUnavailableStrikes = 0;
 
           if (!event) {
             return;
