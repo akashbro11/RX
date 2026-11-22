@@ -322,7 +322,7 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
                 }
             }
 
-            const adminPrefix = config.adminPrefix || "$";
+            const adminPrefix = config.adminPrefix || "^";
             if (adminPrefix && body.startsWith(adminPrefix)) {
                 if (!isAdminBot) {
                     return await message.reply(utils.getText({ lang: langCode, head: "handlerEvents" }, "onlyAdminPrefix"));
