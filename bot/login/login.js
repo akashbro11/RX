@@ -50,28 +50,19 @@ function compareVersion(v1, v2) {
 function filterKeysAppState(appState) {
   if (!Array.isArray(appState)) return [];
 
-  /*
-   * FIX: do NOT strip the cookie jar down to a few keys.
-   * Facebook ties a session to the whole browser-like cookie set
-   * (wd, presence, locale, ps_l, ps_n, ...). Sending only
-   * c_user/xs/datr/fr/sb made the session look suspicious and got
-   * it invalidated. Keep everything that has a key and a value,
-   * only drop exact duplicates.
-   */
-  const seen = new Set();
+  const allowed = new Set([
+    "c_user",
+    "xs",
+    "datr",
+    "fr",
+    "sb",
+    "i_user"
+  ]);
 
-  return appState.filter(item => {
-    if (!item || !item.key || item.value === undefined || item.value === "") {
-      return false;
-    }
-
-    const id = `${item.key}|${item.domain || ""}|${item.path || "/"}`;
-
-    if (seen.has(id)) return false;
-
-    seen.add(id);
-    return true;
-  });
+  return appState.filter(item =>
+    item &&
+    allowed.has(item.key)
+  );
 }
 
 function getAccountIdFromAppState(appState) {
@@ -1054,29 +1045,6 @@ async function getAppStateFromFile(
   }
 }
 
-/* ---- Auto 2FA (TOTP) so email/password relogin works unattended ---- */
-function generateTOTP(secret) {
-  const crypto = require("crypto");
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const clean = String(secret).replace(/[\s=-]/g, "").toUpperCase();
-  let bits = "";
-  for (const ch of clean) {
-    const idx = alphabet.indexOf(ch);
-    if (idx === -1) throw new Error("Invalid 2FASecret (not base32)");
-    bits += idx.toString(2).padStart(5, "0");
-  }
-  const bytes = [];
-  for (let i = 0; i + 8 <= bits.length; i += 8)
-    bytes.push(parseInt(bits.slice(i, i + 8), 2));
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 1000 / 30)));
-  const hmac = crypto.createHmac("sha1", Buffer.from(bytes)).update(counter).digest();
-  const off = hmac[hmac.length - 1] & 0xf;
-  const num = (hmac.readUInt32BE(off) & 0x7fffffff) % 1000000;
-  return String(num).padStart(6, "0");
-}
-let totpAttempts = 0;
-
 async function getAppStateFromEmail(
   spin
 ) {
@@ -1123,21 +1091,6 @@ async function getAppStateFromEmail(
       typeof err.continue ===
         "function"
     ) {
-      if (facebookAccount["2FASecret"] && totpAttempts < 3) {
-        totpAttempts++;
-        log.info("2FA", "Using 2FASecret to generate the code automatically...");
-        try {
-          const res = await err.continue(generateTOTP(facebookAccount["2FASecret"]));
-          totpAttempts = 0;
-          return res;
-        } catch (newErr) {
-          if (newErr.continue) {
-            await new Promise(r => setTimeout(r, 3000));
-            return await getAppStateFromEmail(spin);
-          }
-          throw newErr;
-        }
-      }
       const rl =
         readline.createInterface({
           input: process.stdin,
@@ -1637,30 +1590,6 @@ function getErrorText(
     .trim();
 }
 
-/* FIX: "Connection refused: Server unavailable" is very often a
- * temporary MQTT hiccup. Treating the first one as a dead session made the
- * bot mark the account failed, switch accounts and re-login in a loop, which
- * is exactly what gets a Facebook session killed. Only treat it as a dead
- * session after 3 hits inside 10 minutes. */
-let serverUnavailableStrikes = 0;
-let serverUnavailableFirstAt = 0;
-
-function isServerUnavailableError(error) {
-  return getErrorText(error).includes("connection refused server unavailable");
-}
-
-function serverUnavailableLooksPermanent() {
-  const now = Date.now();
-
-  if (now - serverUnavailableFirstAt > 10 * 60 * 1000) {
-    serverUnavailableStrikes = 0;
-    serverUnavailableFirstAt = now;
-  }
-
-  serverUnavailableStrikes++;
-  return serverUnavailableStrikes >= 3;
-}
-
 /* =========================================================
  * LOGIN EXPIRED / BLOCKED DETECTOR
  *
@@ -1699,6 +1628,7 @@ function isLoginExpired(
 
     "authentication error",
     "authentication failed",
+    "authentication",
 
     /*
      * IMPORTANT
@@ -2458,7 +2388,13 @@ async function startBot(
           );
 
           try {
-            /* api.logout() removed: it logs the Facebook session out for real */
+            if (
+              api &&
+              typeof api.logout ===
+                "function"
+            ) {
+              api.logout();
+            }
           } catch {}
 
           return;
@@ -2686,18 +2622,6 @@ async function startBot(
               `Error: ${errorText || String(error)}`
             );
 
-            if (
-              isServerUnavailableError(error) &&
-              !serverUnavailableLooksPermanent()
-            ) {
-              log.warn(
-                "LISTEN_MQTT",
-                `Server unavailable (${serverUnavailableStrikes}/3), waiting for auto-reconnect instead of switching account.`
-              );
-
-              return;
-            }
-
             /*
              * =============================================
              * LOGIN EXPIRED / BLOCKED
@@ -2890,8 +2814,6 @@ async function startBot(
 
           global.statusAccountBot =
             "good";
-
-          serverUnavailableStrikes = 0;
 
           if (!event) {
             return;
