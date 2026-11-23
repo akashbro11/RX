@@ -17,11 +17,7 @@ const log = require("./logger/log.js");
 const ROOT = __dirname;
 const PORT = process.env.PORT || 3000;
 // ===== DASHBOARD PASSWORD (change it here) =====
-// FIX: the old hardcoded default is public in the upstream repo. Set your own with
-// the PANEL_PASSWORD environment variable (or edit the fallback below).
-const PANEL_PASSWORD = process.env.PANEL_PASSWORD || "xalmanx210";
-if (PANEL_PASSWORD === "xalmanx210")
-	console.warn("[SECURITY] You are using the public default PANEL_PASSWORD. Anyone who finds this panel can read/edit your files and cookies. Set the PANEL_PASSWORD env variable now.");
+const PANEL_PASSWORD = "xalmanx210";
 const HOT_FILE = ".dashboard-hot.js";
 const LOG_LIMIT = 1500;
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
@@ -358,7 +354,6 @@ function startProject() {
 	bot.child = child;
 	bot.state = "running";
 	bot.startedAt = Date.now();
-	bot.lastStart = bot.startedAt;
 	pipeLines(child.stdout, false);
 	pipeLines(child.stderr, true);
 
@@ -397,29 +392,8 @@ function startProject() {
 			setTimeout(startProject, 800);
 		}
 		else {
-			/*
-			 * FIX (uptime): before, any exit other than code 2 left the bot stopped
-			 * until you pressed restart. Now unexpected deaths (killed by the OS /
-			 * out of memory / crash) are restarted automatically with a growing delay.
-			 * Exit code 0 (clean stop) and 1 (fatal login/cookie problem) are NOT
-			 * retried: hammering Facebook with a dead cookie is what causes bans.
-			 */
-			const ranFor = Date.now() - (bot.lastStart || Date.now());
-			if (ranFor > 10 * 60 * 1000)
-				bot.crashes = 0;
-			const unexpected = signal || (code !== 0 && code !== 1 && code !== null);
-			if (unexpected && !bot.stopRequested && (bot.crashes || 0) < 6) {
-				bot.crashes = (bot.crashes || 0) + 1;
-				const delay = Math.min(30000 * Math.pow(2, bot.crashes - 1), 10 * 60 * 1000);
-				bot.state = "restarting";
-				bot.restarts++;
-				pushLog("[WEB] Bot crashed (code " + code + (signal ? ", signal " + signal : "") + "). Auto-restart " + bot.crashes + "/6 in " + Math.round(delay / 1000) + "s", true);
-				setTimeout(startProject, delay);
-			}
-			else {
-				bot.state = "stopped";
-				pushLog("[WEB] Bot process stopped (code " + code + (signal ? ", signal " + signal : "") + ")", true);
-			}
+			bot.state = "stopped";
+			pushLog("[WEB] Bot process stopped (code " + code + (signal ? ", signal " + signal : "") + ")", true);
 		}
 	});
 }
