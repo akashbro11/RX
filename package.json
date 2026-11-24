@@ -37,7 +37,7 @@
     "totp-generator": "^1.0.0",
     "undici": "^8.4.0",
     "ws": "^8.18.1",
-    "yumi-json-bigint": "^1.0.0"
+    "yumi-json-bigint": "^1.0.0",
     "gif-encoder-2": "^1.0.5",
     "gradient-string": "^2.0.2",
     "graphql-query-to-json": "^2.0.1",
