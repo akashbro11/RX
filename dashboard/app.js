@@ -210,7 +210,7 @@ module.exports = async (api) => {
         // Stats API - JSON data
         app.get("/stats", async (req, res) => {
                 let fcaVersion;
-                try { fcaVersion = require("fca-azadx69x/package.json").version; }
+                try { fcaVersion = require("../includes/Fca/package.json").version; }
                 catch (e) { fcaVersion = "unknown"; }
 
                 let botVersion;
