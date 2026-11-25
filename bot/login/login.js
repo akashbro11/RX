@@ -1626,9 +1626,6 @@ function isLoginExpired(
     "cookie expired",
     "cookie is expired",
 
-    "authentication error",
-    "authentication failed",
-    "authentication",
 
     /*
      * IMPORTANT
@@ -1637,13 +1634,12 @@ function isLoginExpired(
     "login_blocked",
 
     "auth error",
+    "session likely invalid",
     "auth_error",
 
     "checkpoint",
 
-    "login error",
 
-    "connection refused server unavailable",
 
     "account disabled",
     "account suspended"
@@ -2387,13 +2383,19 @@ async function startBot(
             "Ignoring callback from an old login session."
           );
 
+          /*
+           * FIX: do NOT call api.logout() here.
+           * The old and the new session share the SAME Facebook cookie,
+           * so logout() kills the real, live session on Facebook's side.
+           * Just stop the stale listener and ignore it.
+           */
           try {
             if (
               api &&
-              typeof api.logout ===
+              typeof api.stopListening ===
                 "function"
             ) {
-              api.logout();
+              api.stopListening();
             }
           } catch {}
 
@@ -2716,9 +2718,7 @@ async function startBot(
               error?.error ===
                 "Not logged in" ||
               error?.error ===
-                "Not logged in." ||
-              error?.error ===
-                "Connection refused: Server unavailable"
+                "Not logged in."
             ) {
               log.err(
                 "LISTEN_MQTT",
