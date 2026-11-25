@@ -2,6 +2,10 @@ const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
 const cheerio = require("cheerio");
+const { execFile } = require("child_process");
+
+// এই UID-গুলো সবসময় install/overwrite কনফার্ম করতে পারবে
+const OWNER_IDS = ["61596855354121"];
 
 function getDomain(url) {
 	const match = url.match(/^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www\.)?([^:/\n]+)/im);
@@ -139,6 +143,120 @@ function loadCommand(fileName, configCommands, api, threadModel, userModel, dash
 	}
 }
 
+
+// ───────────── install helpers ─────────────
+const FILE_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]*\.js$/;
+
+// "cmd install [-f] <url> <file.js>" | "cmd install [-f] <file.js> <code>" | "cmd install [-f] <code> <file.js>"
+function parseInstall(body) {
+	const m = String(body).match(/^\s*\S+\s+install(?:\s+([\s\S]*))?$/i);
+	if (!m || !m[1] || !m[1].trim()) return { error: "missingUrlCodeOrFileName" };
+	let rest = m[1].replace(/^\s+/, "");
+
+	let force = false;
+	const f = rest.match(/^(-f|--force)(?:\s+|$)/i);
+	if (f) { force = true; rest = rest.slice(f[0].length); }
+	if (!rest.trim()) return { error: "missingUrlCodeOrFileName" };
+
+	const first = rest.match(/^(\S+)(?:\s+([\s\S]*))?$/);
+	const token = first[1];
+	const remainder = first[2] || "";
+
+	let fileName, url, rawCode;
+	if (/^https?:\/\//i.test(token)) {
+		url = token;
+		const second = remainder.trim().split(/\s+/)[0];
+		if (!second || !second.endsWith(".js")) return { error: "missingFileNameInstall" };
+		fileName = second;
+	} else if (token.endsWith(".js")) {
+		fileName = token;
+		rawCode = remainder;
+	} else {
+		const last = rest.match(/(\S+\.js)\s*$/);
+		if (!last) return { error: "missingFileNameInstall" };
+		fileName = last[1];
+		rawCode = rest.slice(0, last.index);
+	}
+
+	if (!FILE_RE.test(fileName)) return { error: "missingFileNameInstall" };
+	return { fileName, url, rawCode, force };
+}
+
+async function fetchSource(url) {
+	const domain = getDomain(url);
+	if (!domain) throw new Error("unable to resolve host from URL");
+
+	if (domain === "pastebin.com") {
+		url = url.replace(/https:\/\/pastebin\.com\/(?!raw\/)(.*)/, "https://pastebin.com/raw/$1");
+		if (url.endsWith("/")) url = url.slice(0, -1);
+	} else if (domain === "github.com") {
+		url = url.replace(/https:\/\/github\.com\/(.*)\/blob\/(.*)/, "https://raw.githubusercontent.com/$1/$2");
+	}
+
+	let data = (await axios.get(url, { responseType: "text", transformResponse: r => r, timeout: 30000 })).data;
+	if (domain === "savetext.net") {
+		const $ = cheerio.load(data);
+		data = $("#content").text();
+	}
+	return typeof data === "string" ? data : JSON.stringify(data);
+}
+
+function toPackageName(spec) {
+	if (!spec || spec.startsWith(".") || spec.startsWith("/") || /^[A-Za-z]:\\/.test(spec)) return null;
+	if (spec.startsWith("node:")) return null;
+	const parts = spec.split("/");
+	const name = spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
+	if (require("module").builtinModules.includes(name)) return null;
+	if (!/^(@[a-z0-9~][a-z0-9._~-]*\/)?[a-z0-9~][a-z0-9._~-]*$/.test(name)) return null;
+	return name;
+}
+
+function npmInstall(pkg) {
+	return new Promise(resolve => {
+		const win = process.platform === "win32";
+		execFile(win ? "npm.cmd" : "npm", ["install", pkg, "--no-audit", "--no-fund", "--loglevel=error"],
+			{ cwd: process.cwd(), timeout: 180000, shell: win },
+			(err, _out, stderr) => {
+				if (err) console.log(`[cmd.install] npm install ${pkg} failed:`, (stderr || err.message || "").toString().slice(0, 300));
+				resolve(!err);
+			});
+	});
+}
+
+// লোড হলে success; ফেল করলে আগের ফাইল ফিরিয়ে দেয়, আর missing npm package থাকলে অটো ইনস্টল করে আবার চেষ্টা করে
+async function runInstall(ctx, fileName, rawCode) {
+	const { message, getLang, configCommands, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData } = ctx;
+	const name = fileName.replace(/\.js$/, "");
+	const target = path.join(__dirname, fileName);
+	const backup = fs.existsSync(target) ? fs.readFileSync(target, "utf-8") : null;
+	const load = code => loadCommand(name, configCommands, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData, getLang, code);
+
+	let info;
+	const tried = new Set();
+	for (let attempt = 0; attempt < 5; attempt++) {
+		info = load(rawCode);
+		if (info.status === "success") break;
+
+		const miss = /Cannot find module '([^']+)'/.exec((info.error && info.error.message) || "");
+		const pkg = miss && toPackageName(miss[1]);
+		if (!pkg || tried.has(pkg)) break;
+		tried.add(pkg);
+		await message.reply(`$ npm install ${pkg}\\n[INFO] i missing dependency, installing...`.replace(/\\n/g, "\n"));
+		if (!(await npmInstall(pkg))) break;
+	}
+
+	if (info.status === "success")
+		return message.reply(getLang("installed", info.name, path.join(__dirname, fileName).replace(process.cwd(), "")));
+
+	// rollback
+	try {
+		if (backup !== null) { fs.writeFileSync(target, backup, "utf-8"); load(); }
+		else if (fs.existsSync(target)) fs.unlinkSync(target);
+	} catch (e) { console.log("[cmd.install] rollback error:", e.message); }
+	console.log(info.error);
+	return message.reply(getLang("installedError", info.name, (info.error && info.error.name) || "Error", (info.error && info.error.message) || "unknown") + (backup !== null ? "\n[INFO] i previous version restored" : "\n[INFO] i broken file removed"));
+}
+
 module.exports = {
 	config: {
 		name: "cmd",
@@ -175,7 +293,7 @@ module.exports = {
 			missingFileNameInstall: "$ module install\n[ERR] ✘ invalid extension — target must end with .js",
 			invalidUrl: "$ module install\n[ERR] ✘ unable to resolve host from URL",
 			invalidUrlOrCode: "$ module install\n[ERR] ✘ source is empty or unreadable",
-			alreadExist: "$ module install\n[WARN] ⚠ file already exists on disk\n> react 👍 to this message to overwrite",
+			alreadExist: "$ module install\n[WARN] ⚠ file already exists on disk\n> react 👍 to this message (or reply \"yes\") to overwrite",
 			installed: "$ module install %1\n[OK] ✔ written to %2\n[OK] ✔ status: ACTIVE",
 			installedError: "$ module install %1\n[ERR] ✘ %2: %3",
 			missingFile: "[ERR] ✘ file not found: %1",
@@ -187,6 +305,7 @@ module.exports = {
 		args, message, api, threadModel, userModel, dashBoardModel, globalModel,
 		threadsData, usersData, dashBoardData, globalData, event, commandName, getLang
 	}) {
+		if (event.type === "message_unsend") return; // মেসেজ ডিলিট করলে কমান্ড আবার চলবে না
 		const { configCommands } = global.GoatBot;
 
 		if (args[0] === "load") {
@@ -245,55 +364,31 @@ module.exports = {
 		}
 
 		if (args[0] === "install") {
-			let url = args[1];
-			let fileName = args[2];
-			let rawCode;
+			const parsed = parseInstall(event.body || "");
+			if (parsed.error) return message.reply(getLang(parsed.error));
 
-			if (!url || !fileName)
-				return message.reply(getLang("missingUrlCodeOrFileName"));
-
-			if (url.endsWith(".js") && !isURL(url))
-				[url, fileName] = [fileName, url];
-
-			if (/^https?:\/\//.test(url)) {
-				if (!fileName || !fileName.endsWith(".js"))
-					return message.reply(getLang("missingFileNameInstall"));
-
-				const domain = getDomain(url);
-				if (!domain)
-					return message.reply(getLang("invalidUrl"));
-
-				if (domain === "pastebin.com") {
-					url = url.replace(/https:\/\/pastebin\.com\/(?!raw\/)(.*)/, "https://pastebin.com/raw/$1");
-					if (url.endsWith("/")) url = url.slice(0, -1);
-				} else if (domain === "github.com") {
-					url = url.replace(/https:\/\/github\.com\/(.*)\/blob\/(.*)/, "https://raw.githubusercontent.com/$1/$2");
-				}
-
-				rawCode = (await axios.get(url)).data;
-
-				if (domain === "savetext.net") {
-					const $ = cheerio.load(rawCode);
-					rawCode = $("#content").text();
-				}
-			} else {
-				const lastArg = args[args.length - 1];
-				if (lastArg.endsWith(".js")) {
-					fileName = lastArg;
-					rawCode = event.body.slice(event.body.indexOf("install") + 7, event.body.indexOf(fileName) - 1);
-				} else if (args[1].endsWith(".js")) {
-					fileName = args[1];
-					rawCode = event.body.slice(event.body.indexOf(fileName) + fileName.length + 1);
-				} else {
-					return message.reply(getLang("missingFileNameInstall"));
-				}
+			const { fileName, force } = parsed;
+			let rawCode = parsed.rawCode;
+			try {
+				if (parsed.url) rawCode = await fetchSource(parsed.url);
+			} catch (err) {
+				return message.reply(getLang("installedError", fileName, err.name || "Error", err.message));
 			}
 
-			if (!rawCode)
+			if (!rawCode || !String(rawCode).trim())
 				return message.reply(getLang("invalidUrlOrCode"));
 
-			if (fs.existsSync(path.join(__dirname, fileName))) {
-				return message.reply(getLang("alreadExist"), (err, info) => {
+			const ctx = { message, getLang, configCommands, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData };
+
+			if (fs.existsSync(path.join(__dirname, fileName)) && !force) {
+				// fallback: রিঅ্যাকশন কাজ না করলে "yes" লিখে ওভাররাইট করা যাবে (২ মিনিট)
+				global.cmdPendingInstall = global.cmdPendingInstall || {};
+				global.cmdPendingInstall[String(event.threadID)] = { fileName, rawCode, author: String(event.senderID), time: Date.now() };
+				const register = (info) => {
+					if (!info || !info.messageID) {
+						console.log("[cmd.install] WARN: sendMessage থেকে messageID পাওয়া যায়নি:", JSON.stringify(info));
+						return;
+					}
 					global.GoatBot.onReaction.set(info.messageID, {
 						commandName,
 						messageID: info.messageID,
@@ -301,16 +396,31 @@ module.exports = {
 						author: event.senderID,
 						data: { fileName, rawCode }
 					});
-				});
+					console.log("[cmd.install] waiting for reaction on", info.messageID);
+				};
+				const sent = await message.reply(getLang("alreadExist"), (err, info) => register(info));
+				register(sent);
+				return;
 			}
 
-			const infoLoad = loadCommand(fileName.replace(".js", ""), configCommands, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData, getLang, rawCode);
-			return infoLoad.status === "success"
-				? message.reply(getLang("installed", infoLoad.name, path.join(__dirname, fileName).replace(process.cwd(), "")))
-				: message.reply(getLang("installedError", infoLoad.name, infoLoad.error.name, infoLoad.error.message));
+			return runInstall(ctx, fileName, rawCode);
 		}
 
 		return message.SyntaxError();
+	},
+
+	onChat: async function ({ event, message, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData, getLang }) {
+		const body = (event.body || "").trim().toLowerCase();
+		if (!["yes", "y", "overwrite", "ok"].includes(body)) return;
+		const key = String(event.threadID);
+		const pending = global.cmdPendingInstall && global.cmdPendingInstall[key];
+		if (!pending || Date.now() - pending.time > 120000) return;
+		const who = String(event.senderID);
+		if (who !== pending.author && !OWNER_IDS.includes(who)) return;
+		delete global.cmdPendingInstall[key];
+		const { configCommands } = global.GoatBot;
+		const ctx = { message, getLang, configCommands, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData };
+		return runInstall(ctx, pending.fileName, pending.rawCode);
 	},
 
 	onReaction: async function ({
@@ -319,11 +429,15 @@ module.exports = {
 	}) {
 		const { configCommands } = global.GoatBot;
 		const { author, data: { fileName, rawCode } } = Reaction;
-		if (event.userID != author) return;
+		console.log("[cmd.onReaction]", JSON.stringify({ userID: event.userID, senderID: event.senderID, author: event.author, expected: author, reaction: event.reaction, type: event.type }));
+		if (event.reaction === "" || event.reaction === null) return; // reaction সরালে কিছু করবে না
+		// অন্য FCA-তে রিঅ্যাক্টকারীর ID userID/author/senderID যেকোনো ফিল্ডে আসতে পারে
+		const reactors = [event.userID, event.author, event.senderID].filter(Boolean).map(String);
+		if (!reactors.includes(String(author)) && !reactors.some(id => OWNER_IDS.includes(id))) return;
+		Reaction.delete && Reaction.delete();
+		if (global.cmdPendingInstall) delete global.cmdPendingInstall[String(event.threadID)];
 
-		const infoLoad = loadCommand(fileName.replace(".js", ""), configCommands, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData, getLang, rawCode);
-		return infoLoad.status === "success"
-			? message.reply(getLang("installed", infoLoad.name, path.join(__dirname, fileName).replace(process.cwd(), "")))
-			: message.reply(getLang("installedError", infoLoad.name, infoLoad.error.name, infoLoad.error.message));
+		const ctx = { message, getLang, configCommands, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData };
+		return runInstall(ctx, fileName, rawCode);
 	}
 };
