@@ -46,7 +46,7 @@ module.exports = {
   config: {
     name: "prompt",
     aliases: ["imgprompt", "p"],
-    version: "5.1",
+    version: "5.2",
     author: "xalman",
     countDown: 5,
     role: 0,
@@ -79,7 +79,7 @@ module.exports = {
       );
     }
 
-    api.setMessageReaction("🔍", messageID, () => {}, true);
+    api.setMessageReaction("⏱️", messageID, () => {}, true);
 
     try {
       const response = await axios.get(
@@ -104,7 +104,7 @@ module.exports = {
 
       api.setMessageReaction("✅", messageID, () => {}, true);
 
-      const msg = `🖼️ 𝗜𝗠𝗔𝗚𝗘 𝗣𝗥𝗢𝗠𝗣𝗧\n━━━━━━━━━━━━━━━━━━\n${prompt}`;
+      const msg = `${prompt}`;
 
       return api.sendMessage(msg, threadID, messageID);
 
