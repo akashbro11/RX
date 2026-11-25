@@ -24,6 +24,7 @@
     "fontstyles": "^1.1.2",
     "fs": "^0.0.1-security",
     "fs-extra": "^11.1.0",
+    "yt-search": "^2.10.4",
     "ffmpeg-static": "^5.2.0",
     "googleapis": "^100.0.0",
     "bluebird": "^3.7.2",
