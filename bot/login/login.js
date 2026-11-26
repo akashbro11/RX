@@ -2407,6 +2407,24 @@ async function startBot(
          * LOGIN SUCCESS
          * -------------------------------------------------
          */
+        if (!api.__unsendPatched) {
+  const _unsend = api.unsendMessage.bind(api);
+  api.unsendMessage = (messageID, a, b) => new Promise((resolve) => {
+    const cb = typeof a === "function" ? a : typeof b === "function" ? b : null;
+    const timer = setTimeout(resolve, 8000); // হ্যাং হলেও আটকাবে না
+    try {
+      _unsend(messageID, (err, data) => {
+        clearTimeout(timer);
+        if (cb) cb(err, data);
+        resolve(data);
+      });
+    } catch (e) {
+      clearTimeout(timer);
+      resolve();
+    }
+  });
+  api.__unsendPatched = true;
+        }
 
         global.GoatBot.fcaApi =
           api;
