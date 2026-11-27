@@ -3090,40 +3090,6 @@ async function startBot(
             "MQTT listener started successfully."
           );
 
-          /* ===== RX PATCH: save fresh cookies back to account file ===== */
-          try {
-            clearInterval(global.__rxStateKeeper);
-            const rxSaveState = () => {
-              try {
-                if (global.GoatBot.loginSessionId !== currentSessionId) return;
-                if (!accountFile || loginWithEmail) return;
-                if (typeof api.getAppState !== "function") return;
-                const st = api.getAppState();
-                if (!Array.isArray(st)) return;
-                const cu = st.find(c => c && c.key === "c_user");
-                const xs = st.find(c => c && c.key === "xs");
-                if (!cu || !xs || String(cu.value) !== String(global.GoatBot.botID)) return;
-                const target = getAccountPath(accountFile);
-                if (!target) return;
-                const json = JSON.stringify(st, null, 2);
-                try {
-                  if (existsSync(target) && fs.readFileSync(target, "utf8").trim() === json) return;
-                  if (existsSync(target)) fs.copyFileSync(target, target + ".bak");
-                } catch {}
-                fs.writeFileSync(target + ".tmp", json);
-                fs.renameSync(target + ".tmp", target);
-                log.info("KEEPALIVE", `Cookies refreshed & saved to ${accountFile}`);
-              } catch (e) {
-                log.warn("KEEPALIVE", `Could not save cookies: ${e.message}`);
-              }
-            };
-            setTimeout(rxSaveState, 2 * 60 * 1000);
-            global.__rxStateKeeper = setInterval(rxSaveState, 30 * 60 * 1000);
-          } catch (e) {
-            log.warn("KEEPALIVE", `Setup failed: ${e.message}`);
-          }
-          /* ===== END RX PATCH ===== */
-
           /*
            * Auto uptime.
            */
