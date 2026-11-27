@@ -10,7 +10,7 @@ const readline = defaultRequire("readline");
 const fs = defaultRequire("fs-extra");
 const QRCodeReader = defaultRequire("qrcode-reader");
 const Canvas = defaultRequire("canvas");
-const fca = defaultRequire("../../includes/Fca");
+const login = defaultRequire(`${process.cwd()}/fb-chat-api`);
 
 const login =
   typeof fca === "function"
