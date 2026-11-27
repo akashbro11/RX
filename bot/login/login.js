@@ -2796,14 +2796,7 @@ async function startBot(
                 "LISTEN_MQTT",
                 "MQTT connection closed."
               );
-              /* RX PATCH: reconnect if no event arrives within 30s */
-              clearTimeout(global.__rxClosedTimer);
-              global.__rxClosedTimer = setTimeout(() => {
-                try {
-                  if (typeof global.GoatBot.rxRestartListener === "function")
-                    global.GoatBot.rxRestartListener("connection closed");
-                } catch {}
-              }, 30000);
+
               return;
             }
 
@@ -2839,7 +2832,7 @@ async function startBot(
 
           global.statusAccountBot =
             "good";
-          clearTimeout(global.__rxClosedTimer); /* RX PATCH */
+
           if (!event) {
             return;
           }
@@ -3097,15 +3090,9 @@ async function startBot(
             "MQTT listener started successfully."
           );
 
-          /* ===== RX PATCH: cookie keeper + listener keepalive ===== */
+          /* ===== RX PATCH: save fresh cookies back to account file ===== */
           try {
-            const rxCfg =
-              global.GoatBot.config.restartListenMqtt || {};
             clearInterval(global.__rxStateKeeper);
-            clearInterval(global.__rxListenRestart);
-            clearTimeout(global.__rxClosedTimer);
-
-            // Save the freshest cookies back to the account file
             const rxSaveState = () => {
               try {
                 if (global.GoatBot.loginSessionId !== currentSessionId) return;
@@ -3130,45 +3117,8 @@ async function startBot(
                 log.warn("KEEPALIVE", `Could not save cookies: ${e.message}`);
               }
             };
-
-            // Restart only the MQTT listener (no full re-login)
-            let rxRestarting = false;
-            const rxRestartListener = async (reason) => {
-              if (rxRestarting) return;
-              if (global.GoatBot.loginSessionId !== currentSessionId) return;
-              rxRestarting = true;
-              try {
-                log.info("KEEPALIVE", `Restarting MQTT listener (${reason})...`);
-                await stopListening();
-                await new Promise(r => setTimeout(r, rxCfg.delayAfterStopListening || 2000));
-                if (global.GoatBot.loginSessionId !== currentSessionId) return;
-                try {
-                  if (typeof api.refreshFb_dtsg === "function")
-                    await Promise.race([
-                      Promise.resolve(api.refreshFb_dtsg()),
-                      new Promise(r => setTimeout(r, 10000))
-                    ]);
-                } catch {}
-                global.GoatBot.Listening = api.listenMqtt(createCallBackListen());
-                rxSaveState();
-              } catch (e) {
-                log.warn("KEEPALIVE", `Listener restart failed: ${e.message}`);
-              } finally {
-                rxRestarting = false;
-              }
-            };
-            global.GoatBot.rxRestartListener = rxRestartListener;
-
             setTimeout(rxSaveState, 2 * 60 * 1000);
             global.__rxStateKeeper = setInterval(rxSaveState, 30 * 60 * 1000);
-
-            if (rxCfg.enable !== false) {
-              const every = Math.max(Number(rxCfg.timeRestart) || 21600000, 3600000);
-              global.__rxListenRestart = setInterval(
-                () => rxRestartListener("scheduled refresh"),
-                every
-              );
-            }
           } catch (e) {
             log.warn("KEEPALIVE", `Setup failed: ${e.message}`);
           }
